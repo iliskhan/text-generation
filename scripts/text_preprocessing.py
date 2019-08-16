@@ -4,7 +4,7 @@ import re
 import numpy as np 
 import pandas as pd 
 
-from string import punctuation
+from tqdm import tqdm
 from pymystem3 import Mystem
 from nltk.corpus import stopwords
 from multiprocessing import Pool
@@ -30,17 +30,21 @@ def main():
     cleared_descriptions = []
     cleared_comments = []
 
+    batch_size = 64
+
+    end = len(data)
+
     with Pool() as p:
 
-        result = p.starmap(preprocess_data, zip(descriptions, comments))
-    
-    [cleared_descriptions.append(i[0]) for i in result]
-    [cleared_comments.append(i[1]) for i in result]            
+        for i in tqdm(range(0, end, batch_size)):
+            code_block(descriptions, comments, i, batch_size, p, 
+                        cleared_descriptions, cleared_comments)
 
-    # for description, comments_list in zip(descriptions, comments):
-
-    #     description, comments_list = preprocess_data(description, comments_list)
-
+        mod = end % batch_size
+        if mod:
+            i += batch_size
+            code_block(descriptions, comments, i, mod, p, 
+                        cleared_descriptions, cleared_comments)
 
     cleared_data = pd.DataFrame()
 
@@ -49,6 +53,18 @@ def main():
 
     with open(destination_path, 'w', encoding='utf8') as f:
         cleared_data.to_json(f, force_ascii=False)
+
+
+def code_block(descriptions, comments, i, batch_size, p, c_d, c_c):
+
+    t_descriptions = descriptions[i:i+batch_size]
+    t_comments = comments[i:i+batch_size]
+
+    result = p.starmap(preprocess_data, zip(t_descriptions, t_comments))
+
+    c_d.extend([i[0] for i in result])
+    c_c.extend([i[1] for i in result])
+
 
 def preprocess_data(description, comments):
 
