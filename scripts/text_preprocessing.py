@@ -51,8 +51,11 @@ def main():
     cleared_data['описания'] = cleared_descriptions
     cleared_data['комменты'] = cleared_comments
 
+    data = cleared_data[cleared_data['описания'].str.len() & 
+                        cleared_data['комменты'].str.len() != 0]
+
     with open(destination_path, 'w', encoding='utf8') as f:
-        cleared_data.to_json(f, force_ascii=False)
+        data.to_json(f, force_ascii=False)
 
 
 def code_block(descriptions, comments, i, batch_size, p, c_d, c_c):
