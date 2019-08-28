@@ -51,11 +51,20 @@ def main():
     cleared_data['описания'] = cleared_descriptions
     cleared_data['комменты'] = cleared_comments
 
-    data = cleared_data[cleared_data['описания'].str.len() & 
-                        cleared_data['комменты'].str.len() != 0]
+    data = cleared_data[cleared_data['описания'].str.len() != 0]
+    data = cleared_data[cleared_data['комменты'].str.len() != 0]
 
+    data = data[data['описания'].str.len() > 1]
+
+    data['описания'] = data['описания'].apply(lambda x: x.strip())
+    
+    data['комменты'] = data['комменты'].apply(lambda x: x[np.argmax([len(i) for i in x])])
+    
+    data= data[data['комменты'].str.len() > 1]
+    
     with open(destination_path, 'w', encoding='utf8') as f:
         data.to_json(f, force_ascii=False)
+    print(len(data))
 
 
 def code_block(descriptions, comments, i, batch_size, p, c_d, c_c):
@@ -72,43 +81,44 @@ def code_block(descriptions, comments, i, batch_size, p, c_d, c_c):
 def preprocess_data(description, comments):
 
     cleared_comments = []
-    cleared_description = preprocess_text(description)
+    cleared_description = preprocess_text(description, lemmatize=True)
 
     for comment in comments:
 
         comment = preprocess_text(comment)
-        if comment is not None:
+        if comment is not None: #and comment != '' and comment != ' ':
             cleared_comments.append(comment)
 
     return cleared_description, cleared_comments
 
 
-def preprocess_text(text):
+def preprocess_text(text, lemmatize=False):
 
     #удаление разрывов строк
     text = text.replace('\r', ' ')
     text = text.replace('\n', ' ')
 
-    #удаление хештегов
+    #удаление хештегов и отметок
     tokens = re.sub(r'[#]\w+','', text.lower())
+    tokens = re.sub(r'[@]\w+','', tokens)
     
-    #удаление всех символов кроме букв и пробелов
-    tokens = re.sub(r'[^а-я\s]', '', tokens)
-
-    tokens = re.sub(r'(\s)\1+', r'\1', tokens)
-
-    if tokens.replace(' ','').isalpha():
+    if lemmatize:
+        #удаление всех символов кроме букв и пробелов
+        tokens = re.sub(r'[^а-я\s]', '', tokens)
         tokens = mystem.lemmatize(tokens)
-
         tokens = [token for token in tokens if token not in russian_stopwords
-                  and token != " " and token != "\n"]
-        
-        text = " ".join(tokens)
+                        and token != " " and token != "\n"]
+    
+        tokens = " ".join(tokens)
+    else:
+        #удаление всех символов кроме букв, пробелов и знаков препинания
+        tokens = re.sub(r'[^а-я\s.,:;!?\-1]', '', tokens)
 
-        text = text.replace('\n', '')
-        text = re.sub(r'(\s)\1+', r'\1', text)
-        
-        return text
+    text = re.sub(r'(\s)\1+', r'\1', tokens)
+
+    text = text.replace('\n', '')
+    #if len(text) > 1:
+    return text
 
 
 if __name__ == '__main__':
